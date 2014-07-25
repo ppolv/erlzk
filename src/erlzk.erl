@@ -19,6 +19,7 @@
 -include("erlzk.hrl").
 
 -export([start/0, stop/0, connect/2, connect/3, connect/4, close/1]).
+-export([connect_standalone/2, connect_standalone/3, connect_standalone/4]). %% not supervised, linked to the caller
 -export([create/2, create/3, create/4, create/5, delete/2, delete/3, exists/2, exists/3,
          get_data/2, get_data/3, set_data/3, set_data/4, get_acl/2, set_acl/3, set_acl/4,
          get_children/2, get_children/3, sync/2, get_children2/2, get_children2/3,
@@ -55,6 +56,31 @@ start() ->
 -spec stop() -> ok | {error, term()}.
 stop() ->
     application:stop(erlzk).
+
+%% @doc Connect to ZooKeeper.
+%% @see connect_standalone/4
+-spec connect_standalone(server_list(), pos_integer()) -> {ok, pid()} | {error, atom()}.
+connect_standalone(ServerList, Timeout) ->
+    connect_standalone(ServerList, Timeout, []).
+
+%% @doc Connect to ZooKeeper.
+%% @see connect_standalone/4
+-spec connect_standalone(server_list(), pos_integer(), options()) -> {ok, pid()} | {error, atom()};
+             ({local, Name::atom()} | {global, GlobalName::term()} | {via, Module::atom(), ViaName::term()},
+              server_list(), pos_integer()) -> {ok, pid()} | {error, atom()}.
+connect_standalone(ServerList, Timeout, Options) when is_list(Options) ->
+    erlzk_conn:start_link(ServerList, Timeout, Options);
+connect_standalone(ServerName, ServerList, Timeout) when is_integer(Timeout) ->
+    connect_standalone(ServerName, ServerList, Timeout, []).
+
+%% @doc Connect to ZooKeeper. 
+%%
+%%	The created connection is linked to the calling process.  
+%% @see connect/4
+-spec connect_standalone({local, Name::atom()} | {global, GlobalName::term()} | {via, Module::atom(), ViaName::term()},
+              server_list(), pos_integer(), options()) -> {ok, pid()} | {error, atom()}.
+connect_standalone(ServerName, ServerList, Timeout, Options) ->
+    erlzk_conn:start_link(ServerName, ServerList, Timeout, Options).
 
 %% @doc Connect to ZooKeeper.
 %% @see connect/4

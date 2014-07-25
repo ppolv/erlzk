@@ -251,12 +251,14 @@ handle_info({tcp, _Port, Packet}, State=#state{chroot=Chroot, ping_interval=Ping
 handle_info({tcp_closed, _Port}, State=#state{host=Host, port=Port, monitor=Monitor}) ->
     error_logger:error_msg("Connection to ~p:~p is broken, reconnect now~n", [Host, Port]),
     notify_monitor_server_state(Monitor, disconnected, Host, Port),
-    reconnect(State#state{socket=undefined, host=undefined, port=undefined});
+    fail_pending_queries(State, connection_lost),
+    reconnect(State#state{socket=undefined, host=undefined, port=undefined, reqs=dict:new()});
 handle_info({tcp_error, _Port, Reason}, State=#state{socket=Socket, host=Host, port=Port, monitor=Monitor}) ->
     error_logger:error_msg("Connection to ~p:~p meet an error, will be closed and reconnect: ~p~n", [Host, Port, Reason]),
     gen_tcp:close(Socket),
     notify_monitor_server_state(Monitor, disconnected, Host, Port),
-    reconnect(State#state{socket=undefined, host=undefined, port=undefined});
+    fail_pending_queries(State, connection_lost),
+    reconnect(State#state{socket=undefined, host=undefined, port=undefined, reqs=dict:new()});
 handle_info(reconnect, State) ->
     reconnect(State);
 handle_info(_Info, State=#state{ping_interval=PingIntv}) ->
@@ -433,3 +435,9 @@ send_watched_event([{_Time, Op, Path, Watcher}|Left], EventType) ->
 get_chroot_path(P) -> get_chroot_path0(lists:reverse(P)).
 get_chroot_path0("/" ++ P) -> get_chroot_path0(P);
 get_chroot_path0(P) -> lists:reverse(P).
+
+
+fail_pending_queries(#state{reqs=Reqs}, ErrorCondition) ->
+    lists:foreach(fun({_Xid, {_Op, From}}) ->
+                                  gen_server:reply(From, {error, ErrorCondition})
+        end, dict:to_list(Reqs)).

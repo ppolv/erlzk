@@ -336,8 +336,8 @@ reconnect(State=#state{servers=ServerList, auth_data=AuthData, chroot=Chroot,
     case connect(shuffle(ServerList), ProtoVer, Zxid, Timeout, SessionId, Passwd) of
         {ok, NewState=#state{host=Host, port=Port, ping_interval=PingIntv}} ->
             error_logger:warning_msg("Reconnect to ~p:~p successful~n", [Host, Port]),
-            RenewState = NewState#state{servers=ServerList, auth_data=AuthData, chroot=Chroot,
-                                        xid=Xid, zxid=Zxid, reset_watch=ResetWatch, monitor=Monitor, watchers=Watchers},
+            RenewState = reset_watch_return_new_state(NewState#state{servers=ServerList, auth_data=AuthData, chroot=Chroot,
+                                        xid=Xid, zxid=Zxid, reset_watch=ResetWatch, monitor=Monitor}, Watchers),
             notify_monitor_server_state(Monitor, connected, Host, Port),
             {noreply, RenewState, PingIntv};
         {error, session_expired} ->
